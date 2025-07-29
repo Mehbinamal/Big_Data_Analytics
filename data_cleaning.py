@@ -1,74 +1,69 @@
-import pandas as pd
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
+from pyspark.sql.functions import col, trim, when
 
-# Sample DataFrame with common issues
-data = {
-    'Name': ['Alice', 'Bob', 'alice', 'Charlie', 'bob', None],
-    'Age': [25, np.nan, 25, 35, 25, 22],
-    'City': ['New York', 'new york', 'New Yrok', 'Los Angeles', 'LOS ANGELES', 'Chicago'],
-    'Salary': ['$1000', '$1500', '$1000', '$2000', '$1500', '$1800'],
-    'JoinDate': ['2020-01-01', '2021/02/15', '01-03-2022', 'April 4, 2023', '2024.05.05', None],
-    'Score': [95, 90, 92, 200, 91, 88],  # Outlier: 200
-}
 
-df = pd.DataFrame(data)
-print("Original DataFrame:\n", df)
+def clean_data(df):
+    """
+    Cleans the input PySpark DataFrame by:
+    1. Dropping duplicate rows
+    2. Removing rows with nulls in critical columns
+    3. Trimming whitespace from string columns
+    4. Converting column data types (example included)
+    5. Filtering out invalid values (example included)
 
-# -------------------------------------------
-# 1. Handle Missing Values
-# -------------------------------------------
-df['Age'].fillna(df['Age'].mean(), inplace=True)
-df['Name'].fillna('Unknown', inplace=True)
+    Parameters:
+        df (pyspark.sql.DataFrame): The input DataFrame
 
-# -------------------------------------------
-# 2. Remove Duplicates (if any)
-# -------------------------------------------
-df.drop_duplicates(inplace=True)
+    Returns:
+        pyspark.sql.DataFrame: The cleaned DataFrame
+    """
+    # Step 1: Drop duplicates
+    df = df.dropDuplicates()
 
-# -------------------------------------------
-# 3. Fix Inconsistent Data
-# Standardize name and city
-df['Name'] = df['Name'].str.title().str.strip()
-df['City'] = df['City'].str.title().str.strip()
-df['City'].replace({'New Yrok': 'New York'}, inplace=True)
+    # Step 2: Drop rows with nulls in critical columns (modify as needed)
+    df = df.dropna(subset=["name", "age"])  # example critical columns
 
-# -------------------------------------------
-# 4. Handle Outliers (IQR method for 'Score')
-Q1 = df['Score'].quantile(0.25)
-Q3 = df['Score'].quantile(0.75)
-IQR = Q3 - Q1
-df = df[(df['Score'] >= Q1 - 1.5 * IQR) & (df['Score'] <= Q3 + 1.5 * IQR)]
+    # Step 3: Trim whitespace from all string columns
+    string_cols = [field.name for field in df.schema.fields if field.dataType.simpleString() == 'string']
+    for col_name in string_cols:
+        df = df.withColumn(col_name, trim(col(col_name)))
 
-# -------------------------------------------
-# 5. Standardize Formats
-# Convert Salary to numeric
-df['Salary'] = df['Salary'].replace('[\$,]', '', regex=True).astype(float)
+    # Step 4: Convert 'age' column to IntegerType (example)
+    df = df.withColumn("age", col("age").cast("int"))
 
-# Convert JoinDate to datetime
-df['JoinDate'] = pd.to_datetime(df['JoinDate'], errors='coerce')
+    # Step 5: Filter out invalid ages (e.g., age < 0 or null)
+    df = df.filter((col("age") >= 0) & (col("age").isNotNull()))
 
-# -------------------------------------------
-# 6. Fix Data Entry Errors (City)
-print("\nCity value counts before correction:")
-print(df['City'].value_counts())
+    return df
 
-# Already fixed above with replace, but here’s how you’d detect
-# Check for unique values:
-print("\nUnique Cities:\n", df['City'].unique())
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from pyspark.sql import Row
 
-# -------------------------------------------
-# 7. Correct Data Types
-print("\nData Types Before:\n", df.dtypes)
-df['Age'] = df['Age'].astype(int)
-print("\nData Types After:\n", df.dtypes)
+# Initialize Spark session (if not already created)
+spark = SparkSession.builder.appName("DataCleaningExample").getOrCreate()
 
-# -------------------------------------------
-# 8. Drop Irrelevant Features
-# Let's say we don’t need the 'JoinDate' column
-df.drop(['JoinDate'], axis=1, inplace=True)
+# Sample data with duplicates, nulls, whitespace, and invalid ages
+data = [
+    Row(name=" Alice ", age="25"),
+    Row(name="Bob", age="30"),
+    Row(name=" Alice ", age="25"),  # duplicate
+    Row(name="Charlie", age=None),  # null age
+    Row(name=None, age="22"),  # null name
+    Row(name="David", age="-5"),  # invalid age
+    Row(name="Eve", age=" 40 "),
+]
 
-# -------------------------------------------
-# Final Cleaned DataFrame
-print("\nCleaned DataFrame:\n", df)
+# Define schema (optional, but recommended for clarity)
+schema = StructType([
+    StructField("name", StringType(), True),
+    StructField("age", StringType(), True),
+])
+
+# Create DataFrame
+raw_df = spark.createDataFrame(data, schema)
+
+# Show raw data
+raw_df.show()
+
+cleaned_df = clean_data(raw_df)
+cleaned_df.show()
