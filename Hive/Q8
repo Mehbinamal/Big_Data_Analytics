@@ -1,0 +1,67 @@
+hive> CREATE DATABASE IF NOT EXISTS company_db;
+OK
+Time taken: 0.116 seconds
+hive> USE company_db;
+OK
+Time taken: 0.018 seconds
+hive> CREATE TABLE employees (
+    >     emp_id INT,
+    >     emp_name STRING,
+    >     department STRING,
+    >     salary FLOAT,
+    >     joining_date DATE
+    > )
+    > ROW FORMAT DELIMITED
+    > FIELDS TERMINATED BY ','
+    > STORED AS TEXTFILE;
+OK
+Time taken: 0.276 seconds
+hive> INSERT INTO TABLE employees VALUES
+    > (101, 'Amal', 'IT', 55000.0, '2021-04-15'),
+    > (102, 'Riya', 'Finance', 48000.0, '2020-06-01'),
+    > (103, 'Arun', 'HR', 50000.0, '2022-01-20'),
+    > (104, 'Sneha', 'IT', 62000.0, '2019-11-10');
+Query ID = amal_20251028155910_087fd3b3-5a1f-456a-a35e-282aae9ce44f
+Total jobs = 3
+Launching Job 1 out of 3
+Number of reduce tasks is set to 0 since there's no reduce operator
+Job running in-process (local Hadoop)
+2025-10-28 15:59:13,124 Stage-1 map = 0%,  reduce = 0%
+2025-10-28 15:59:14,138 Stage-1 map = 100%,  reduce = 0%
+Ended Job = job_local1188557106_0001
+Stage-4 is selected by condition resolver.
+Stage-3 is filtered out by condition resolver.
+Stage-5 is filtered out by condition resolver.
+Moving data to directory hdfs://localhost:9000/user/hive/warehouse/company_db.db/employees/.hive-staging_hive_2025-10-28_15-59-10_839_5804168943346580157-1/-ext-10000
+Loading data to table company_db.employees
+MapReduce Jobs Launched: 
+Stage-Stage-1:  HDFS Read: 0 HDFS Write: 207 SUCCESS
+Total MapReduce CPU Time Spent: 0 msec
+OK
+Time taken: 3.578 seconds
+hive> SELECT * FROM employees;
+OK
+101	Amal	IT	55000.0	2021-04-15
+102	Riya	Finance	48000.0	2020-06-01
+103	Arun	HR	50000.0	2022-01-20
+104	Sneha	IT	62000.0	2019-11-10
+Time taken: 0.105 seconds, Fetched: 4 row(s)
+hive> ALTER TABLE employees ADD COLUMNS (email STRING);
+OK
+Time taken: 0.078 seconds
+hive> ALTER TABLE employees CHANGE emp_name full_name STRING;
+OK
+Time taken: 0.092 seconds
+hive> ALTER TABLE employees RENAME TO staff;
+OK
+Time taken: 0.065 seconds
+hive> SHOW TABLES;
+OK
+staff
+Time taken: 0.024 seconds, Fetched: 1 row(s)
+hive> DROP TABLE IF EXISTS staff;
+OK
+Time taken: 0.123 seconds
+hive> SHOW TABLES;
+OK
+Time taken: 0.025 seconds
